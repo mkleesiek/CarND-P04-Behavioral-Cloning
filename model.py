@@ -20,6 +20,7 @@ from keras.layers.core import Dense, Flatten, Dropout
 from keras.layers.convolutional import Conv2D
 
 import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
 
 
 def update_progress(progress, opt_text=""):
@@ -33,7 +34,7 @@ def update_progress(progress, opt_text=""):
         "#" * block + "-" * (bar_length - block), progress * 100, opt_text), end='\r')
 
 
-def parse_driving_logs(data_dir, flip=True, cameras=[0,1,2], steering_correction=0.15):
+def parse_driving_logs(data_dir, flip=True, cameras=[0,1,2], steering_correction=0.2):
     """
     Parse all CSV driving logs and corresponding image data recorded with the training simulator.
 
@@ -168,11 +169,6 @@ def plot_history(history_object):
     plt.show()
 
 
-# def normalize_image(img):
-#     col_min, col_max = np.min(img), np.max(img)
-#     return (img - col_min) / (col_max - col_min)
-
-
 def main():
     # parse command line arguments
     parser = argparse.ArgumentParser(description='Create driving model from training data.',
@@ -180,13 +176,12 @@ def main():
     parser.add_argument(
         'data_folder',
         type=str,
-        default='.',
         help='Path to folder containing training logs and images.'
     )
     parser.add_argument(
         '--steering-correction', dest='steering_correction',
         type=float,
-        default=0.15,
+        default=0.2,
         help='Steering correction angle added/subtracted from left/right camera angles.'
     )
     parser.add_argument(
@@ -203,7 +198,8 @@ def main():
     )
     args = parser.parse_args()
 
-    print(args)
+    print("Command line arguments:")
+    print(vars(args))
 
     # parse driving logs and perform offline augmentation
     samples = parse_driving_logs(args.data_folder, steering_correction=args.steering_correction)
@@ -212,9 +208,8 @@ def main():
     df = pd.DataFrame(samples, columns=['filename', 'angle'])
     df_train, df_valid = train_test_split(df, shuffle=True, test_size=0.2)
 
-    # prepare data generator for training data, including in-place online augmentation
+    # prepare data generator for training data, including in-place online augmentation (rotation, shear and zoom)
     datagen_train = ImageDataGenerator(
-        # rescale=1.0/255.0,
         rotation_range=5.0,
         shear_range=5.0,
         zoom_range=0.05,
@@ -241,13 +236,9 @@ def main():
     step_size_valid = valid_generator.n // valid_generator.batch_size
 
     # batch = next(train_generator)
-    # for i in range(5):
-    #     plt.imshow(batch[0][i])
-    #     plt.show()
-    #
-    # batch = next(valid_generator)
-    # for i in range(5):
-    #     plt.imshow(batch[0][i])
+    # for i in range(32):
+    #     plt.imshow(normalize_image(batch[0][i]))
+    #     plt.gca().add_patch(Rectangle((0,74),319,160-95,linewidth=1,edgecolor='r',facecolor='none'))
     #     plt.show()
 
     # perform training and validation
@@ -269,15 +260,10 @@ def main():
     plot_history(history)
 
 
-    # for i in range(3):
-    #     test_samples = parse_driving_logs(False, [i])
-    #     test_images = []
-    #     for fn, angle in test_samples:
-    #         test_images.append(np.asarray(Image.open(fn)))
-    #     test_images = np.asarray(test_images)
-    #     predictions = model.predict(test_images)
-    #     print("{}: {}".format(i, np.nanmean(predictions)))
-
-
 if __name__ == "__main__":
     main()
+
+
+# def normalize_image(img):
+#     col_min, col_max = np.min(img), np.max(img)
+#     return (img - col_min) / (col_max - col_min)
