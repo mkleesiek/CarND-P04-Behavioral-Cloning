@@ -3,13 +3,13 @@ import math
 import glob
 import os
 import os.path
+import argparse
 
 import numpy as np
 import pandas as pd
 
 from PIL import Image
 
-from sklearn.utils import shuffle
 from sklearn.model_selection import train_test_split
 
 from keras.models import Sequential
@@ -21,15 +21,6 @@ from keras.layers.convolutional import Conv2D
 
 import matplotlib.pyplot as plt
 
-data_dir = 'data_custom'
-img_dir = data_dir + '/IMG'
-img_flip_dir = data_dir + '/IMG_flip'
-
-STEERING_CORRECTION = 0.2
-
-NB_EPOCHS = 10
-BATCH_SIZE = 32
-
 
 def update_progress(progress, opt_text=""):
     """
@@ -38,16 +29,31 @@ def update_progress(progress, opt_text=""):
     """
     bar_length = 20
     block = int(math.ceil(bar_length * progress))
-    print("Progress: [{}] {:.1f}%   {:s}".format( "#" * block + "-" * (bar_length - block),
-                                                 progress * 100, opt_text), end='\r')
+    print("Progress: [{}] {:.1f}%   {:s}".format(
+        "#" * block + "-" * (bar_length - block), progress * 100, opt_text), end='\r')
 
-def parse_driving_logs(flip=True, cameras=[0,1,2]):
+
+def parse_driving_logs(data_dir, flip=True, cameras=[0,1,2], steering_correction=0.15):
+    """
+    Parse all CSV driving logs and corresponding image data recorded with the training simulator.
+
+    :param data_dir: Folder containing the training data.
+    :param flip: If True, offline augmentation is performed and a horizontally flipped version of each image
+    is added to the result list.
+    :param cameras: List containing the CSV column indices corresponding to camera angles (center, left, right).
+    :param steering_correction: Steering angle correction, which is added to left (subtracted from right) camera images.
+    :return: A list of tuples (absolute filename, steering angle)
+    """
+
+    IMG_DIR = data_dir + '/IMG'
+    IMG_FLIP_DIR = data_dir + '/IMG_flip'
 
     if not os.path.exists(data_dir):
         return
 
-    if flip and not os.path.exists(img_flip_dir):
-        os.mkdir(img_flip_dir)
+    # create directory for offline augmented data if necessary
+    if flip and not os.path.exists(IMG_FLIP_DIR):
+        os.mkdir(IMG_FLIP_DIR)
 
     samples = []
 
@@ -74,7 +80,7 @@ def parse_driving_logs(flip=True, cameras=[0,1,2]):
                 # iterate over all referenced images (columns 0, 1 and 2)
                 for i in cameras:
                     basename = line[i].split('/')[-1]
-                    img_path = img_dir + '/' + basename
+                    img_path = IMG_DIR + '/' + basename
 
                     if not os.path.isfile(img_path):
                         continue
@@ -82,15 +88,16 @@ def parse_driving_logs(flip=True, cameras=[0,1,2]):
                     angle = float(line[3])
                     # apply steering correction angle to left and right camera pictures
                     if i == 1:
-                        angle = angle + STEERING_CORRECTION
+                        angle = angle + steering_correction
                     elif i == 2:
-                        angle = angle - STEERING_CORRECTION
+                        angle = angle - steering_correction
 
                     samples.append((img_path, angle))
 
-                    # generate a horizontally flipped variant of the image
+                    # generate a horizontally flipped variant of the image and save it to
+                    # filesystem, if it doesn't exist yet
                     if flip:
-                        img_flip_path = img_flip_dir + '/' + basename
+                        img_flip_path = IMG_FLIP_DIR + '/' + basename
                         if not os.path.isfile(img_flip_path):
                             img_rgb = Image.open(img_path)
                             img_rgb_flip = img_rgb.transpose(Image.FLIP_LEFT_RIGHT)
@@ -101,24 +108,37 @@ def parse_driving_logs(flip=True, cameras=[0,1,2]):
     return samples
 
 
-def create_model(input_shape=(160, 320, 3),
-                   vertical_cropping=(74, 20),
-                   dropout_rate=0.2):
+def create_model(input_shape=(160, 320, 3), vertical_cropping=(74, 20), dropout_rate=0.2):
+    """
+    Creates a `Sequential` model instance based on the CNN architecture presented in NVIDIA's
+    paper 'End to End Learning for Self-Driving Cars' (https://arxiv.org/pdf/1604.07316v1.pdf).
+
+    :param input_shape: Shape of the input image data (width, height, colors).
+    :param vertical_cropping: Number of pixels to be cropped from (top, bottom).
+    :param dropout_rate: Dropout rate used for dropout layers between fully connected layers
+    of the CNN (only used during training).
+    :return: A `keras.models.Sequential` instance.
+    """
 
     model = Sequential()
 
-    # Preprocess incoming data, centered around zero with small standard deviation
+    # reprocess incoming data, centered around zero with small standard deviation
     model.add(Lambda(lambda x: x / 255.0 - 0.5, input_shape=input_shape))
+
+    # apply top/bottom crop
     model.add(Cropping2D(cropping=(vertical_cropping, (0, 0))))
 
+    # series of convolutional layers with pooling
     model.add(Conv2D(24, 5, strides=(2, 3), padding='valid', activation='relu'))
     model.add(Conv2D(36, 5, strides=(2, 2), padding='valid', activation='relu'))
     model.add(Conv2D(48, 5, strides=(2, 2), padding='valid', activation='relu'))
     model.add(Conv2D(64, 3, strides=(1, 1), padding='valid', activation='relu'))
     model.add(Conv2D(64, 3, strides=(1, 1), padding='valid', activation='relu'))
 
+    # flatten input nodes
     model.add(Flatten())
 
+    # series of fully connected layers including dropouts
     model.add(Dropout(dropout_rate))
     model.add(Dense(100))
 
@@ -148,41 +168,76 @@ def plot_history(history_object):
     plt.show()
 
 
-def normalize_image(img):
-    col_min, col_max = np.min(img), np.max(img)
-    return (img - col_min) / (col_max - col_min)
+# def normalize_image(img):
+#     col_min, col_max = np.min(img), np.max(img)
+#     return (img - col_min) / (col_max - col_min)
 
 
 def main():
-    samples = parse_driving_logs()
-    df = pd.DataFrame(samples, columns=['filename', 'angle'])
+    # parse command line arguments
+    parser = argparse.ArgumentParser(description='Create driving model from training data.',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument(
+        'data_folder',
+        type=str,
+        default='.',
+        help='Path to folder containing training logs and images.'
+    )
+    parser.add_argument(
+        '--steering-correction', dest='steering_correction',
+        type=float,
+        default=0.15,
+        help='Steering correction angle added/subtracted from left/right camera angles.'
+    )
+    parser.add_argument(
+        '--epochs', dest='epochs',
+        type=int,
+        default=10,
+        help='Number of epochs used for training the model.'
+    )
+    parser.add_argument(
+        '--batch-size', dest='batch_size',
+        type=int,
+        default=64,
+        help='Batch size of samples used for training.'
+    )
+    args = parser.parse_args()
 
+    print(args)
+
+    # parse driving logs and perform offline augmentation
+    samples = parse_driving_logs(args.data_folder, steering_correction=args.steering_correction)
+
+    # convert list of images and steering angles into a pandas dataframe and split into training and valiation set
+    df = pd.DataFrame(samples, columns=['filename', 'angle'])
     df_train, df_valid = train_test_split(df, shuffle=True, test_size=0.2)
 
+    # prepare data generator for training data, including in-place online augmentation
     datagen_train = ImageDataGenerator(
         # rescale=1.0/255.0,
-        rotation_range=3.0,
-        shear_range=3.0,
-        zoom_range=0.03,
+        rotation_range=5.0,
+        shear_range=5.0,
+        zoom_range=0.05,
         fill_mode='nearest')
     train_generator = datagen_train.flow_from_dataframe(dataframe=df_train, x_col='filename', y_col='angle',
-        class_mode='raw', target_size=(160, 320), batch_size=BATCH_SIZE,
-        interpolation='bilinear')
+        class_mode='raw', target_size=(160, 320), interpolation='bilinear', batch_size=args.batch_size)
 
+    # prepare data generator for validation data, without augmentation
     datagen_valid = ImageDataGenerator()
     valid_generator = datagen_valid.flow_from_dataframe(dataframe=df_valid, x_col='filename', y_col='angle',
-        class_mode='raw', target_size=(160, 320), batch_size=BATCH_SIZE,
-        interpolation='bilinear')
+        class_mode='raw', target_size=(160, 320), interpolation='bilinear', batch_size=args.batch_size)
 
+    # instantiate the CNN model and print a summary
     model = create_model()
     model.summary()
-    plot_model(model, to_file=data_dir + '/model.png',
-               show_shapes=True, show_layer_names=True, rankdir="TB", expand_nested=False, dpi=96)
+    plot_model(model, to_file=args.data_folder + '/model.png',
+        show_shapes=True, show_layer_names=True, rankdir="TB", expand_nested=False, dpi=96)
 
-    # compile and train the model using the generator function
+    # compile the model using a mean-squared error loss function and an adaptive Adam optimizer
     model.compile(loss='mse', optimizer='adam')
 
-    step_size_train = train_generator.n // train_generator.batch_size
+    # double the amount of in-place augmented samples used for training
+    step_size_train = 2 * train_generator.n // train_generator.batch_size
     step_size_valid = valid_generator.n // valid_generator.batch_size
 
     # batch = next(train_generator)
@@ -195,21 +250,22 @@ def main():
     #     plt.imshow(batch[0][i])
     #     plt.show()
 
+    # perform training and validation
     history = model.fit(
         train_generator,
         steps_per_epoch=step_size_train,
         validation_data=valid_generator,
         validation_steps=step_size_valid,
         workers=os.cpu_count()//2,
-        # use_multiprocessing=True,
         shuffle=True,
-        epochs=NB_EPOCHS,
+        epochs=args.epochs,
         verbose=1)
 
-    model.save(data_dir + '/model.h5')
-
+    # save model in HDF5 format
+    model.save(args.data_folder + '/model.h5')
     print("Model saved.")
 
+    # plot loss vs. epochs
     plot_history(history)
 
 
