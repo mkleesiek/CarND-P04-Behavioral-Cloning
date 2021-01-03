@@ -27,81 +27,74 @@ The script to drive the car [drive.py](drive.py) has not been modified from its 
 
 #### 1. Model Architecture
 
-<img src="data/model.png" align="right" width="200" />
+<img src="data/model.png" align="right" width="300" />
 
-My model is based on Nvidida's 
+The CNN model implemented in [model.py](model.py), function `create_model()`, is largely based on NVIDIA's architecture presented in their paper "End to End Learning for Self-Driving Cars" (https://arxiv.org/pdf/1604.07316v1.pdf).
+It involves a series of convolutional layers with strides (code line 133-137) and a series of fully connected dense layers (line 143-153).
 
-The model includes RELU layers to introduce nonlinearity (code line 20), and the data is normalized in the model using a Keras lambda layer (code line 18). 
+Nonlinearity is introduced by adding RELU activation to the convolutional layers.
+Overfitting is effectively avoided by adding dropout layers before each fully connected layer with a configurable rate of 0.2 each (line 143-153).
 
-#### 2. Attempts to reduce overfitting in the model
+On the input side of the network, the data is normalized to a range between [-0.5, 0.5] (line 127) and cropped to the relevant vertical portion of interest (line 130).
+On the output side a single fully connected node is added, representing the predicted steering angle value (line 153).
 
-The model contains dropout layers in order to reduce overfitting (model.py lines 21). 
+One more difference to the model presented by NVIDIA is the larger horizontal stride of '3' in the first convolutional layer (line 133). This compensates the larger image width of 320 pixels used in this project and together with the vertical cropping brings down the dimensionality of the model to a similar order of magnitude as in the NVIDIA paper.
 
-The model was trained and validated on different data sets to ensure that the model was not overfitting (code line 10-16). The model was tested by running it through the simulator and ensuring that the vehicle could stay on the track.
+For a graphical overview of all layers including their shapes please see the diagram provided on the right ([data/model.png](model.png)).
 
-#### 3. Model parameter tuning
+#### 2. Model parameter tuning
 
-The model used an adam optimizer, so the learning rate was not tuned manually (model.py line 25).
+The model uses an Adam optimizer, with the loss function being the mean squared error between label and prediction (line 232).
+With such a setup the initial default learning rate of 0.001 is adapted dynamically during training.
 
-#### 4. Appropriate training data
+#### 3. Model training and validation
 
-Training data was chosen to keep the vehicle driving on the road. I used a combination of center lane driving, recovering from the left and right sides of the road ... 
+20% of the shuffled training data was reserved for validation. The loss of both training and validation data is monitored across training epochs to assess signs of overfitting. After typically 10-20 epochs no further improvement of validation loss was seen.
 
-For details about how I created the training data, see the next section. 
+<img src="examples/loss.png" width="250" />
 
-### Model Architecture and Training Strategy
+#### 4. Training data augmentation
 
-#### 1. Solution Design Approach
+The recorded training data is augmented both offline and online before fed to the CNN:
+1. In function `parse_driving_logs()` (line 37) the CSV logs from the driving simulator are parsed and the respective images for left, center and right camera angles are resolved. A fixed (but configurable) steering angle correction is applied to the label for left and right camera images (line 91-94).
+2. After that, each image is flipped horizontally and a copy is written to the filesystem (only during the first run) and the assigned label's sign is reversed. Effectively, the amount of usable training data is doubled. (Performing this step offline is necessary in order to prepare a simple list of tuples (filename, label) for the Keras `ImageDataGenerator` used in the next stage.)
+3. Both training and validation data are piped to the model via instances of the [Keras `ImageDataGenerator`](https://keras.io/api/preprocessing/image/) (line 212-223). These generators will create batches of input data and read the required image data from disk on the fly. In case of the training data, in-place augmentation is applied to better generalize the model (and again counteract overfitting):
+    * Random rotation in a range of [-5.0, 5.0] degrees is applied.
+    * Random image shear in a range of [-5.0, 5.0] degrees is applied.
+    * Random amount of relative zoom in the range of [-0.05, 0.05] is performed.
 
-The overall strategy for deriving a model architecture was to ...
+The following pictures show examples of model input, as they are provided by the training data generator. The area cropped by the input layer of the CNN is highlighted in red.
 
-My first step was to use a convolution neural network model similar to the ... I thought this model might be appropriate because ...
+<img src="examples/train1.png" width="200" />
+<img src="examples/train2.png" width="200" />
+<img src="examples/train3.png" width="200" />
+<img src="examples/train4.png" width="200" />
+<img src="examples/train5.png" width="200" />
 
-In order to gauge how well the model was working, I split my image and steering angle data into a training and validation set. I found that my first model had a low mean squared error on the training set but a high mean squared error on the validation set. This implied that the model was overfitting. 
-
-To combat the overfitting, I modified the model so that ...
-
-Then I ... 
-
-The final step was to run the simulator to see how well the car was driving around track one. There were a few spots where the vehicle fell off the track... to improve the driving behavior in these cases, I ....
-
-At the end of the process, the vehicle is able to drive autonomously around the track without leaving the road.
-
-#### 2. Final Model Architecture
-
-The final model architecture (model.py lines 18-24) consisted of a convolution neural network with the following layers and layer sizes ...
-
-Here is a visualization of the architecture (note: visualizing the architecture is optional according to the project rubric)
-
-![alt text][image1]
-
-#### 3. Creation of the Training Set & Training Process
-
-To capture good driving behavior, I first recorded two laps on track one using center lane driving. Here is an example image of center lane driving:
-
-![alt text][image2]
-
-I then recorded the vehicle recovering from the left side and right sides of the road back to center so that the vehicle would learn to .... These images show what a recovery looks like starting from ... :
-
-![alt text][image3]
-![alt text][image4]
-![alt text][image5]
-
-Then I repeated this process on track two in order to get more data points.
-
-To augment the data sat, I also flipped images and angles thinking that this would ... For example, here is an image that has then been flipped:
-
-![alt text][image6]
-![alt text][image7]
-
-Etc ....
-
-After the collection process, I had X number of data points. I then preprocessed this data by ...
+Using the Keras `ImageDataGenerator` has the advantage, that the expensive transformations performed on the input images can be parallelized across multiple workers (line 250).
 
 
-I finally randomly shuffled the data set and put Y% of the data into a validation set. 
+### Training Strategy
 
-I used this training data for training the model. The validation set helped determine if the model was over or under fitting. The ideal number of epochs was Z as evidenced by ... I used an adam optimizer so that manually training the learning rate wasn't necessary.
+The training data was recorded using the self-driving car simulator on both track 1 and 2. On track 1 I did my best to keep the car centered on the single lane while on track 2 I tried to keep the car centered on the right line. For both tracks I paused recording after on lap, turned the car around and drove the circuit reversed.
+
+In addition to these "happy cases", I recorded several recovery scenarios with the car not being on center anymore. In order to not teach the model on how to steer of-center, I would stop recording, before moving the car closer to the lane border at an angle. I then corrected steering to point towards the center again and resume recording before putting the car in motion again. Once the car was oriented properly again, I would stop recording.
+
+<img src="examples/recovery1.png" width="200" />
+
+These recovery data proved to make the autonomous driving behavior a lot more robust, especially in sharp corners of the circuit.
+
+In total I ended up with 28.077 of raw training images (equally divided in left, center and right camera angles). By flipping each image in the offline augmentation stage, this number doubled to 56.154 images. Only 80% out of those were used for actual training, which makes about 44.923 images.
+
+The training data generator was configured to provide twice that amount in each epoch of training (each of those images is augmented in-place during generation), see line 235.
+So effectively, the model was trained with 89846 of randomly augmented images in each epoch.
+
+The [data/model.h5](data/model5.h) file uploaded to this repository, was trained with 20 epochs and a batch size of 64.
+
+
+### Testing Autonomous Driving Mode
+
+
 
 
 ## Dependencies
@@ -114,7 +107,7 @@ The implementation of this project was performed in a [Conda](https://docs.conda
 * [model.py](model.py): Python script for training and saving the Keras model
 * [drive.py](drive.py): Python script connecting to the simulator and driving the car autonomously based on the trained model
 * [video.py](video.py): Python script for creating MP4 videos when driving autonomously
-* [data/model.h5](data/model.h): The trained Keras model in HDF5 format
+* [data/model.h5](data/model5.h): The trained Keras model in HDF5 format
 * [data/track1.mp4](data/track1.mp4): Video recording of the simulator driving around track 1 autonomously
 * [data/track2.mp4](data/track2.mp4): Video recording of the simulator driving around track 2 autonomously
 * [examples/*](examples): Supplemental images for this writeyp
