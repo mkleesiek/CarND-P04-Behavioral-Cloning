@@ -32,7 +32,7 @@ The script to drive the car [drive.py](drive.py) has not been modified from its 
 
 #### 1. Model Architecture
 
-<img src="data/model.png" align="right" width="340" />
+<img src="examples/model.png" align="right" width="340" />
 
 The CNN model implemented in [model.py](model.py), function `create_model()`, is largely based on NVIDIA's architecture presented in their paper "End to End Learning for Self-Driving Cars" (https://arxiv.org/pdf/1604.07316v1.pdf).
 It involves a series of convolutional layers with strides (code line 133-137) and a series of fully connected dense layers (line 143-153).
@@ -129,7 +129,7 @@ The implementation of this project was performed in a [Conda](https://docs.conda
 * [data/model.h5](data/model5.h): The trained Keras model in HDF5 format
 * [data/track1.mp4](data/track1.mp4): Video recording of the simulator driving around track 1 autonomously
 * [data/track2.mp4](data/track2.mp4): Video recording of the simulator driving around track 2 autonomously
-* [examples/*](examples): Supplemental images for this writeyp
+* [examples/*](examples): Supplemental images for this writeup
 * [environment.yml](environment.yml]): Conda environment definition file based on the [CarND Term1 Starter Kit](https://github.com/udacity/CarND-Term1-Starter-Kit), but with more recent versions of TensorFlow and Keras
 
 
