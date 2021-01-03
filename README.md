@@ -10,6 +10,11 @@ The goals of this project are the following:
 * Use the model to drive the vehicle autonomously around the first track in the simulator. The vehicle should remain on the road for an entire loop around the track.
 * Summarize the results with a written report
 
+<p align="middle">
+   <img src="examples/track1.webp" />
+   <img src="examples/track2.webp" />
+<p/>
+
 ## Resources
 * [Self-Driving Car NanoDegree](https://www.udacity.com/course/self-driving-car-engineer-nanodegree--nd013) course description at Udacity
 * [Behavioral Cloning Project](https://github.com/udacity/CarND-Behavioral-Cloning-P3) template on Github
@@ -49,9 +54,11 @@ With such a setup the initial default learning rate of 0.001 is adapted dynamica
 
 #### 3. Model training and validation
 
-20% of the shuffled training data was reserved for validation. The loss of both training and validation data is monitored across training epochs to assess signs of overfitting. After typically 10-20 epochs no further improvement of validation loss was seen.
+20% of the shuffled training data was reserved for validation. The loss of both training and validation data is monitored across training epochs to assess signs of overfitting. After typically 20-40 epochs no further significant improvement of validation loss was seen.
 
-<img src="examples/loss.png" width="250" />
+<img src="examples/loss.png" width="300" />
+
+Note: The training data has additional augmentation applied (see next section), which explains the higher loss compared to the validation data, seen in the above diagram.
 
 #### 4. Training data augmentation
 
@@ -59,17 +66,19 @@ The recorded training data is augmented both offline and online before fed to th
 1. In function `parse_driving_logs()` (line 37) the CSV logs from the driving simulator are parsed and the respective images for left, center and right camera angles are resolved. A fixed (but configurable) steering angle correction is applied to the label for left and right camera images (line 91-94).
 2. After that, each image is flipped horizontally and a copy is written to the filesystem (only during the first run) and the assigned label's sign is reversed. Effectively, the amount of usable training data is doubled. (Performing this step offline is necessary in order to prepare a simple list of tuples (filename, label) for the Keras `ImageDataGenerator` used in the next stage.)
 3. Both training and validation data are piped to the model via instances of the [Keras `ImageDataGenerator`](https://keras.io/api/preprocessing/image/) (line 212-223). These generators will create batches of input data and read the required image data from disk on the fly. In case of the training data, in-place augmentation is applied to better generalize the model (and again counteract overfitting):
-    * Random rotation in a range of [-5.0, 5.0] degrees is applied.
-    * Random image shear in a range of [-5.0, 5.0] degrees is applied.
+    * Random rotation in a range of [-5.0, 5.0] degree is applied.
+    * Random image shear in a range of [-5.0, 5.0] degree is applied.
     * Random amount of relative zoom in the range of [-0.05, 0.05] is performed.
 
 The following pictures show examples of model input, as they are provided by the training data generator. The area cropped by the input layer of the CNN is highlighted in red.
 
-<img src="examples/train1.png" width="200" />
-<img src="examples/train2.png" width="200" />
-<img src="examples/train3.png" width="200" />
-<img src="examples/train4.png" width="200" />
-<img src="examples/train5.png" width="200" />
+<p align="middle">
+   <img src="examples/train1.png" width="200" />
+   <img src="examples/train2.png" width="200" />
+   <img src="examples/train3.png" width="200" />
+   <img src="examples/train4.png" width="200" />
+   <img src="examples/train5.png" width="200" />
+<p/>
 
 Using the Keras `ImageDataGenerator` has the advantage, that the expensive transformations performed on the input images can be parallelized across multiple workers (line 250).
 
@@ -84,18 +93,27 @@ In addition to these "happy cases", I recorded several recovery scenarios with t
 
 These recovery data proved to make the autonomous driving behavior a lot more robust, especially in sharp corners of the circuit.
 
-In total I ended up with 28.077 of raw training images (equally divided in left, center and right camera angles). By flipping each image in the offline augmentation stage, this number doubled to 56.154 images. Only 80% out of those were used for actual training, which makes about 44.923 images.
+In total I ended up with 33.177 of raw training images (equally divided in left, center and right camera angles). By flipping each image in the offline augmentation stage, this number doubled to 66.354 images. Only 80% out of those were used for actual training, which makes about 53.083 images.
 
-The training data generator was configured to provide twice that amount in each epoch of training (each of those images is augmented in-place during generation), see line 235.
-So effectively, the model was trained with 89846 of randomly augmented images in each epoch.
+With regards to the training data generator the number of steps per epoch is configured to use each of those images twice per epoch (code line 240).
 
-The [data/model.h5](data/model5.h) file uploaded to this repository, was trained with 20 epochs and a batch size of 64.
+The [data/model.h5](data/model5.h) file uploaded to this repository, was trained with 40 epochs and a batch size of 64.
 
 
 ### Testing Autonomous Driving Mode
 
+The trained model was tested using the unmodified [drive.py](drive.py) script from Udacity. The Conda environment required some modifications ([environment.yml](environment.yml])) to make the simulator operate in autonomous mode on my local machine (Ubuntu 20.10).
 
+Both in tracks 1 and 2 the vehicle managed to stay within its lane throughout at least one complete circuit each:
+* [Track 1](data/track1.mp4)
+* [Track 2](data/track2.mp4)
 
+It seems that the additional recording of recovery data and the online data augmentation strategy helped in generalizing the model to a point, that made it adequate to the task of driving the vehicle through the challenging track 2 of the simulator.
+
+<p align="middle">
+   <img src="examples/track1.webp" />
+   <img src="examples/track2.webp" />
+<p/>
 
 ## Dependencies
 The implementation of this project was performed in a [Conda](https://docs.conda.io/projects/conda/en/latest/) lab environment provided by Udacity:

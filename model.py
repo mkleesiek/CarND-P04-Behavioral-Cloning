@@ -155,18 +155,22 @@ def create_model(input_shape=(160, 320, 3), vertical_cropping=(74, 20), dropout_
     return model
 
 
-def plot_history(history_object):
+def plot_history(history_object, to_file=None):
     """
     Plot the training and testing loss for each epoch in the provided history.
     """
 
+    plt.figure()
     plt.plot(history_object.history['loss'])
     plt.plot(history_object.history['val_loss'])
     plt.title('model mean squared error loss')
     plt.ylabel('mean squared error loss')
     plt.xlabel('epoch')
     plt.legend(['training set', 'validation set'], loc='upper right')
-    plt.show()
+    if to_file:
+        plt.savefig(to_file)
+    else:
+        plt.show()
 
 
 def main():
@@ -204,7 +208,7 @@ def main():
     # parse driving logs and perform offline augmentation
     samples = parse_driving_logs(args.data_folder, steering_correction=args.steering_correction)
 
-    # convert list of images and steering angles into a pandas dataframe and split into training and valiation set
+    # convert list of images and steering angles into a pandas dataframe and split into training and validation set
     df = pd.DataFrame(samples, columns=['filename', 'angle'])
     df_train, df_valid = train_test_split(df, shuffle=True, test_size=0.2)
 
@@ -231,15 +235,10 @@ def main():
     # compile the model using a mean-squared error loss function and an adaptive Adam optimizer
     model.compile(loss='mse', optimizer='adam')
 
-    # double the amount of in-place augmented samples used for training
+    # calculate the number of in-place augmented samples per batch
+    # double the amount of augmented training images (using each raw training image twice)
     step_size_train = 2 * train_generator.n // train_generator.batch_size
     step_size_valid = valid_generator.n // valid_generator.batch_size
-
-    # batch = next(train_generator)
-    # for i in range(32):
-    #     plt.imshow(normalize_image(batch[0][i]))
-    #     plt.gca().add_patch(Rectangle((0,74),319,160-95,linewidth=1,edgecolor='r',facecolor='none'))
-    #     plt.show()
 
     # perform training and validation
     history = model.fit(
@@ -247,7 +246,7 @@ def main():
         steps_per_epoch=step_size_train,
         validation_data=valid_generator,
         validation_steps=step_size_valid,
-        workers=os.cpu_count()//2,
+        workers=os.cpu_count(),
         shuffle=True,
         epochs=args.epochs,
         verbose=1)
@@ -257,13 +256,8 @@ def main():
     print("Model saved.")
 
     # plot loss vs. epochs
-    plot_history(history)
+    plot_history(history, args.data_folder + '/loss.png')
 
 
 if __name__ == "__main__":
     main()
-
-
-# def normalize_image(img):
-#     col_min, col_max = np.min(img), np.max(img)
-#     return (img - col_min) / (col_max - col_min)
