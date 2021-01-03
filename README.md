@@ -8,11 +8,11 @@ The goals of this project are the following:
 * Use the simulator to collect data of good driving behavior 
 * Design, train and validate a model that predicts a steering angle from image data
 * Use the model to drive the vehicle autonomously around the first track in the simulator. The vehicle should remain on the road for an entire loop around the track.
-* Summarize the results with a written report
+* Summarize the results with a written report (continue reading this file)
 
 <p align="middle">
-   <img src="examples/track1.webp" />
-   <img src="examples/track2.webp" />
+   <img src="examples/track1.webp" width="240" />
+   <img src="examples/track2.webp" width="240" />
 <p/>
 
 ## Resources
@@ -32,7 +32,7 @@ The script to drive the car [drive.py](drive.py) has not been modified from its 
 
 #### 1. Model Architecture
 
-<img src="data/model.png" align="right" width="300" />
+<img src="data/model.png" align="right" width="340" />
 
 The CNN model implemented in [model.py](model.py), function `create_model()`, is largely based on NVIDIA's architecture presented in their paper "End to End Learning for Self-Driving Cars" (https://arxiv.org/pdf/1604.07316v1.pdf).
 It involves a series of convolutional layers with strides (code line 133-137) and a series of fully connected dense layers (line 143-153).
@@ -56,7 +56,7 @@ With such a setup the initial default learning rate of 0.001 is adapted dynamica
 
 20% of the shuffled training data was reserved for validation. The loss of both training and validation data is monitored across training epochs to assess signs of overfitting. After typically 20-40 epochs no further significant improvement of validation loss was seen.
 
-<img src="examples/loss.png" width="300" />
+<img src="examples/loss.png" width="350" />
 
 Note: The training data has additional augmentation applied (see next section), which explains the higher loss compared to the validation data, seen in the above diagram.
 
@@ -73,11 +73,11 @@ The recorded training data is augmented both offline and online before fed to th
 The following pictures show examples of model input, as they are provided by the training data generator. The area cropped by the input layer of the CNN is highlighted in red.
 
 <p align="middle">
-   <img src="examples/train1.png" width="200" />
-   <img src="examples/train2.png" width="200" />
-   <img src="examples/train3.png" width="200" />
-   <img src="examples/train4.png" width="200" />
-   <img src="examples/train5.png" width="200" />
+   <img src="examples/train1.png" width="250" />
+   <img src="examples/train2.png" width="250" />
+   <img src="examples/train3.png" width="250" />
+   <img src="examples/train4.png" width="250" />
+   <img src="examples/train5.png" width="250" />
 <p/>
 
 Using the Keras `ImageDataGenerator` has the advantage, that the expensive transformations performed on the input images can be parallelized across multiple workers (line 250).
@@ -89,7 +89,7 @@ The training data was recorded using the self-driving car simulator on both trac
 
 In addition to these "happy cases", I recorded several recovery scenarios with the car not being on center anymore. In order to not teach the model on how to steer of-center, I would stop recording, before moving the car closer to the lane border at an angle. I then corrected steering to point towards the center again and resume recording before putting the car in motion again. Once the car was oriented properly again, I would stop recording.
 
-<img src="examples/recovery1.png" width="200" />
+<img src="examples/recovery1.jpg" width="250" />
 
 These recovery data proved to make the autonomous driving behavior a lot more robust, especially in sharp corners of the circuit.
 
@@ -102,17 +102,18 @@ The [data/model.h5](data/model5.h) file uploaded to this repository, was trained
 
 ### Testing Autonomous Driving Mode
 
-The trained model was tested using the unmodified [drive.py](drive.py) script from Udacity. The Conda environment required some modifications ([environment.yml](environment.yml])) to make the simulator operate in autonomous mode on my local machine (Ubuntu 20.10).
+The trained model was tested using the unmodified [drive.py](drive.py) script from Udacity.
+The Conda environment required some modifications ([environment.yml](environment.yml])) on my local machine (Ubuntu 20.10) to make the simulator communicate with [drive.py](drive.py) in autonomous mode properly.
 
 Both in tracks 1 and 2 the vehicle managed to stay within its lane throughout at least one complete circuit each:
-* [Track 1](data/track1.mp4)
-* [Track 2](data/track2.mp4)
+* [MP4 recording of track 1](data/track1.mp4)
+* [MP4 recording of track 2](data/track2.mp4)
 
 It seems that the additional recording of recovery data and the online data augmentation strategy helped in generalizing the model to a point, that made it adequate to the task of driving the vehicle through the challenging track 2 of the simulator.
 
 <p align="middle">
-   <img src="examples/track1.webp" />
-   <img src="examples/track2.webp" />
+   <img src="examples/track1.webp" width="240" />
+   <img src="examples/track2.webp" width="240" />
 <p/>
 
 ## Dependencies
