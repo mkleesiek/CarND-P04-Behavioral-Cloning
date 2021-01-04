@@ -35,21 +35,21 @@ The script to drive the car [drive.py](drive.py) has not been modified from its 
 <img src="examples/model.png" align="right" width="340" />
 
 The CNN model implemented in [model.py](model.py), function `create_model()`, is largely based on NVIDIA's architecture presented in their paper "End to End Learning for Self-Driving Cars" (https://arxiv.org/pdf/1604.07316v1.pdf).
-It involves a series of convolutional layers with strides (code line 133-137) and a series of fully connected dense layers (line 143-153).
+It involves a series of convolutional layers with strides and a series of fully connected dense layers.
 
-Nonlinearity is introduced by adding RELU activation to the convolutional layers.
-Overfitting is effectively avoided by adding dropout layers before each fully connected layer with a configurable rate of 0.2 each (line 143-153).
-
-On the input side of the network, the data is normalized to a range between [-0.5, 0.5] (line 127) and cropped to the relevant vertical portion of interest (line 130).
-On the output side a single fully connected node is added, representing the predicted steering angle value (line 153).
-
-One more difference to the model presented by NVIDIA is the larger horizontal stride of '3' in the first convolutional layer (line 133). This compensates the larger image width of 320 pixels used in this project and together with the vertical cropping brings down the dimensionality of the model to a similar order of magnitude as in the NVIDIA paper.
+The following extensions and modifications were made in this particular implementation:
+* Nonlinearity is introduced by adding RELU activation to the convolutional layers.
+* Batch normalization is applied before each convolutional layer.
+* Overfitting is effectively avoided by adding dropout layers before each fully connected layer with a configurable rate of 0.2 each.
+* On the input side of the network, the input data cropped to the relevant vertical portion of interest.
+* On the output side a single fully connected node is added, representing the predicted steering angle value.
+* A larger horizontal stride of '3' is used in the first convolutional layer. This compensates the larger image width of 320 pixels used in this project and together with the vertical cropping brings down the dimensionality of the model to a similar order of magnitude as in the NVIDIA paper.
 
 For a graphical overview of all layers including their shapes please see the diagram provided on the right ([data/model.png](model.png)).
 
 #### 2. Model parameter tuning
 
-The model uses an Adam optimizer, with the loss function being the mean squared error between label and prediction (line 232).
+The model uses an Adam optimizer, with the loss function being the mean squared error between label and prediction.
 With such a setup the initial default learning rate of 0.001 is adapted dynamically during training.
 
 #### 3. Model training and validation
@@ -63,9 +63,9 @@ Note: The training data has additional augmentation applied (see next section), 
 #### 4. Training data augmentation
 
 The recorded training data is augmented both offline and online before fed to the CNN:
-1. In function `parse_driving_logs()` (line 37) the CSV logs from the driving simulator are parsed and the respective images for left, center and right camera angles are resolved. A fixed (but configurable) steering angle correction is applied to the label for left and right camera images (line 91-94).
+1. In function `parse_driving_logs()` the CSV logs from the driving simulator are parsed and the respective images for left, center and right camera angles are resolved. A fixed (but configurable) steering angle correction is applied to the label for left and right camera images.
 2. After that, each image is flipped horizontally and a copy is written to the filesystem (only during the first run) and the assigned label's sign is reversed. Effectively, the amount of usable training data is doubled. (Performing this step offline is necessary in order to prepare a simple list of tuples (filename, label) for the Keras `ImageDataGenerator` used in the next stage.)
-3. Both training and validation data are piped to the model via instances of the [Keras `ImageDataGenerator`](https://keras.io/api/preprocessing/image/) (line 212-223). These generators will create batches of input data and read the required image data from disk on the fly. In case of the training data, in-place augmentation is applied to better generalize the model (and again counteract overfitting):
+3. Both training and validation data are piped to the model via instances of the [Keras `ImageDataGenerator`](https://keras.io/api/preprocessing/image/). These generators will create batches of input data and read the required image data from disk *on the fly*. In case of the training data, *in-place augmentation* is applied to better generalize the model (and again counteract overfitting):
     * Random rotation in a range of [-5.0, 5.0] degree is applied.
     * Random image shear in a range of [-5.0, 5.0] degree is applied.
     * Random amount of relative zoom in the range of [-0.05, 0.05] is performed.
@@ -80,12 +80,12 @@ The following pictures show examples of model input, as they are provided by the
    <img src="examples/train5.png" width="250" />
 <p/>
 
-Using the Keras `ImageDataGenerator` has the advantage, that the expensive transformations performed on the input images can be parallelized across multiple workers (line 250).
+Using the Keras `ImageDataGenerator` has the advantage, that the expensive transformations performed on the input images can be parallelized.
 
 
 ### Training Strategy
 
-The training data was recorded using the self-driving car simulator on both track 1 and 2. On track 1 I did my best to keep the car centered on the single lane while on track 2 I tried to keep the car centered on the right line. For both tracks I paused recording after on lap, turned the car around and drove the circuit reversed.
+The training data was recorded using the self-driving car simulator on both track 1 and 2. On track 1 I did my best to keep the car centered on the single lane while on track 2 I tried to keep the car centered on the right lane. For both tracks I paused recording after on lap, turned the car around and drove the circuit reversed.
 
 In addition to these "happy cases", I recorded several recovery scenarios with the car not being on center anymore. In order to not teach the model on how to steer of-center, I would stop recording, before moving the car closer to the lane border at an angle. I then corrected steering to point towards the center again and resume recording before putting the car in motion again. Once the car was oriented properly again, I would stop recording.
 
@@ -94,8 +94,6 @@ In addition to these "happy cases", I recorded several recovery scenarios with t
 These recovery data proved to make the autonomous driving behavior a lot more robust, especially in sharp corners of the circuit.
 
 In total I ended up with 33.177 of raw training images (equally divided in left, center and right camera angles). By flipping each image in the offline augmentation stage, this number doubled to 66.354 images. Only 80% out of those were used for actual training, which makes about 53.083 images.
-
-With regards to the training data generator the number of steps per epoch is configured to use each of those images twice per epoch (code line 240).
 
 The [data/model.h5](data/model5.h) file uploaded to this repository, was trained with 40 epochs and a batch size of 64.
 

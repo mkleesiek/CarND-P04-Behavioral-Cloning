@@ -15,7 +15,7 @@ from sklearn.model_selection import train_test_split
 from keras.models import Sequential
 from keras.utils import plot_model
 from keras.preprocessing.image import ImageDataGenerator
-from keras.layers import Cropping2D, Lambda
+from keras.layers import Cropping2D, Lambda, BatchNormalization
 from keras.layers.core import Dense, Flatten, Dropout
 from keras.layers.convolutional import Conv2D
 
@@ -123,17 +123,19 @@ def create_model(input_shape=(160, 320, 3), vertical_cropping=(74, 20), dropout_
 
     model = Sequential()
 
-    # reprocess incoming data, centered around zero with small standard deviation
-    model.add(Lambda(lambda x: x / 255.0 - 0.5, input_shape=input_shape))
-
     # apply top/bottom crop
-    model.add(Cropping2D(cropping=(vertical_cropping, (0, 0))))
+    model.add(Cropping2D(cropping=(vertical_cropping, (0, 0)), input_shape=input_shape))
 
-    # series of convolutional layers with pooling
+    # series of convolutional layers with strides, normalization and RELU activation
+    model.add(BatchNormalization())
     model.add(Conv2D(24, 5, strides=(2, 3), padding='valid', activation='relu'))
+    model.add(BatchNormalization())
     model.add(Conv2D(36, 5, strides=(2, 2), padding='valid', activation='relu'))
+    model.add(BatchNormalization())
     model.add(Conv2D(48, 5, strides=(2, 2), padding='valid', activation='relu'))
+    model.add(BatchNormalization())
     model.add(Conv2D(64, 3, strides=(1, 1), padding='valid', activation='relu'))
+    model.add(BatchNormalization())
     model.add(Conv2D(64, 3, strides=(1, 1), padding='valid', activation='relu'))
 
     # flatten input nodes
