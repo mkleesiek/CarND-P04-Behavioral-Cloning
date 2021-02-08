@@ -2,13 +2,13 @@
 
 [![Udacity - Self-Driving Car NanoDegree](https://s3.amazonaws.com/udacity-sdc/github/shield-carnd.svg)](http://www.udacity.com/drive)
 
-In this project of the Udacity [Self-Driving Car NanoDegree](https://www.udacity.com/course/self-driving-car-engineer-nanodegree--nd013) program, I implement a Convolutional Neural Network (CNN) in [Keras](https://keras.io/) and train it to enable autonomous driving by predict steering angles from camera images in a self-driving car simulator.
+In this project of the Udacity [Self-Driving Car NanoDegree](https://www.udacity.com/course/self-driving-car-engineer-nanodegree--nd013) program, I implement a Convolutional Neural Network (CNN) in [Keras](https://keras.io/) and train it to enable autonomous driving by predicting steering angles from camera images in a self-driving car simulator.
 
 The goals of this project are the following:
-* Use the simulator to collect data of good driving behavior 
-* Design, train and validate a model that predicts a steering angle from image data
+* Use the simulator to collect data of good driving behavior.
+* Design, train and validate a model that predicts a steering angle from image data.
 * Use the model to drive the vehicle autonomously around the first track in the simulator. The vehicle should remain on the road for an entire loop around the track.
-* Summarize the results with a written report (continue reading this file)
+* Summarize the results with a written report (continue reading this file).
 
 <p align="middle">
    <img src="examples/track1.webp" width="240" />
